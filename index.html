@@ -1,1 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Personal Finance Manager</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#f3f5f9;color:#202b3c}
+header{background:#172c4d;color:white;padding:22px}
+header h2{margin:0}
+header p{margin:7px 0 0;color:#c8d4e6}
+nav{display:flex;overflow:auto;background:white;padding:10px;gap:8px}
+nav button{border:0;background:#edf1f7;padding:12px;border-radius:9px;white-space:nowrap}
+nav button.active{background:#193b69;color:white}
+main{padding:16px;max-width:850px;margin:auto}
+.card{background:white;border-radius:13px;padding:17px;margin-bottom:14px;box-shadow:0 2px 8px #00000009}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.stat strong{display:block;font-size:22px;margin-top:9px}
+input,select{width:100%;padding:13px;margin:7px 0 12px;border:1px solid #d9dfeb;border-radius:8px;background:white}
+label{font-size:13px;font-weight:bold}
+.action{background:#193b69;color:white;border:0;border-radius:8px;padding:13px;width:100%;font-weight:bold}
+.item{border-bottom:1px solid #eee;padding:12px 0}
+.item:last-child{border:0}
+small{color:#758197}
+h3{margin-top:0}
+.hidden{display:none}
+.delete{float:right;color:#b42318;border:0;background:none}
+</style>
+</head>
+<body>
+<header>
+<h2>Personal Finance Manager</h2>
+<p>Manage your money • UAE & India</p>
+</header>
+<nav>
+<button class="active" onclick="show('dashboard',this)">Dashboard</button>
+<button onclick="show('liabilities',this)">Liabilities</button>
+<button onclick="show('payments',this)">Payments</button>
+<button onclick="show('income',this)">Income</button>
+<button onclick="show('expenses',this)">Expenses</button>
+</nav>
+<main>
+<section id="dashboard">
+<h3>My Dashboard</h3>
+<div class="stats">
+<div class="card stat">Total Liabilities<strong id="totalDebt">0</strong><small>AED + INR separately</small></div>
+<div class="card stat">Total Income<strong id="totalIncome">0</strong></div>
+<div class="card stat">Total Expenses<strong id="totalExpense">0</strong></div>
+<div class="card stat">Payments Made<strong id="totalPayments">0</strong></div>
+</div>
+<div class="card">
+<h3>Currency Converter</h3>
+<input type="number" id="convertAmount" placeholder="Enter amount">
+<select id="convertDirection">
+<option value="AED">AED to INR</option>
+<option value="INR">INR to AED</option>
+</select>
+<input type="number" id="exchangeRate" placeholder="Enter exchange rate">
+<button class="action" onclick="convert()">Convert</button>
+<p id="conversionResult"></p>
+</div>
+</section>
 
+<section id="liabilities" class="hidden">
+<div class="card">
+<h3>Add Liability</h3>
+<label>Description</label><input id="debtName" placeholder="Loan / Person / Bank">
+<label>Country</label><select id="debtCountry"><option>UAE</option><option>India</option></select>
+<label>Currency</label><select id="debtCurrency"><option>AED</option><option>INR</option></select>
+<label>Outstanding Amount</label><input type="number" id="debtAmount" placeholder="Amount">
+<label>Monthly Target</label><input type="number" id="monthlyTarget" placeholder="Monthly repayment">
+<button class="action" onclick="addDebt()">Save Liability</button>
+</div>
+<div class="card"><h3>My Liabilities</h3><div id="debtList"></div></div>
+</section>
+
+<section id="payments" class="hidden">
+<div class="card">
+<h3>Record Repayment</h3>
+<label>Liability</label><select id="paymentDebt"></select>
+<label>Amount</label><input type="number" id="paymentAmount">
+<label>Date</label><input type="date" id="paymentDate">
+<button class="action" onclick="addPayment()">Save Payment</button>
+</div>
+<div class="card"><h3>Payment History</h3><div id="paymentList"></div></div>
+</section>
+
+<section id="income" class="hidden">
+<div class="card">
+<h3>Add Income</h3>
+<input id="incomeName" placeholder="Salary / Other income">
+<input type="number" id="incomeAmount" placeholder="Amount">
+<select id="incomeCurrency"><option>AED</option><option>INR</option></select>
+<button class="action" onclick="addEntry('income')">Save Income</button>
+</div>
+<div class="card"><div id="incomeList"></div></div>
+</section>
+
+<section id="expenses" class="hidden">
+<div class="card">
+<h3>Add Expense</h3>
+<input id="expenseName" placeholder="Rent / Food / Other">
+<input type="number" id="expenseAmount" placeholder="Amount">
+<select id="expenseCurrency"><option>AED</option><option>INR</option></select>
+<button class="action" onclick="addEntry('expense')">Save Expense</button>
+</div>
+<div class="card"><div id="expenseList"></div></div>
+</section>
+</main>
+<script>
+let debts=JSON.parse(localStorage.getItem('debts')||'[]');
+let payments=JSON.parse(localStorage.getItem('payments')||'[]');
+let income=JSON.parse(localStorage.getItem('income')||'[]');
+let expenses=JSON.parse(localStorage.getItem('expenses')||'[]');
+
+function save(){
+localStorage.setItem('debts',JSON.stringify(debts));
+localStorage.setItem('payments',JSON.stringify(payments));
+localStorage.setItem('income',JSON.stringify(income));
+localStorage.setItem('expenses',JSON.stringify(expenses));
+render();
+}
+function show(id,btn){
+document.querySelectorAll('main section').forEach(x=>x.classList.add('hidden'));
+document.getElementById(id).classList.remove('hidden');
+document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));
+btn.classList.add('active');
+}
+function addDebt(){
+let name=debtName.value,amount=Number(debtAmount.value);
+if(!name||amount<=0)return alert('Enter valid details');
+debts.push({id:Date.now(),name,currency:debtCurrency.value,amount,original:amount,target:Number(monthlyTarget.value)||0});
+debtName.value='';debtAmount.value='';monthlyTarget.value='';
+save();
+}
+function addPayment(){
+let id=Number(paymentDebt.value),amount=Number(paymentAmount.value);
+let d=debts.find(x=>x.id===id);
+if(!d||amount<=0||amount>d.amount)return alert('Check liability and payment amount');
+d.amount-=amount;
+payments.push({name:d.name,amount,currency:d.currency,date:paymentDate.value||new Date().toISOString().slice(0,10)});
+paymentAmount.value='';
+save();
+}
+function addEntry(type){
+let name=document.getElementById(type+'Name').value;
+let amount=Number(document.getElementById(type+'Amount').value);
+let currency=document.getElementById(type+'Currency').value;
+if(!name||amount<=0)return alert('Enter valid details');
+(type==='income'?income:expenses).push({name,amount,currency});
+document.getElementById(type+'Name').value='';
+document.getElementById(type+'Amount').value='';
+save();
+}
+function removeItem(type,index){
+if(!confirm('Delete this entry?'))return;
+({debts,payments,income,expenses}[type]).splice(index,1);
+save();
+}
+function money(amount,currency){return Number(amount).toLocaleString()+' '+currency}
+function render(){
+debtList.innerHTML=debts.map((d,i)=><div class="item"><b>${d.name}</b><button class="delete" onclick="removeItem('debts',${i})">Delete</button><br>${money(d.amount,d.currency)} remaining<br><small>Monthly target: ${money(d.target,d.currency)}</small></div>).join('')||'No liabilities added';
+paymentDebt.innerHTML=debts.map(d=><option value="${d.id}">${d.name} (${d.currency})</option>).join('');
+paymentList.innerHTML=payments.map((p,i)=><div class="item">${p.name} — ${money(p.amount,p.currency)}<br><small>${p.date}</small><button class="delete" onclick="removeItem('payments',${i})">Delete</button></div>).join('')||'No payments yet';
+incomeList.innerHTML=income.map((p,i)=><div class="item">${p.name} — ${money(p.amount,p.currency)}<button class="delete" onclick="removeItem('income',${i})">Delete</button></div>).join('');
+expenseList.innerHTML=expenses.map((p,i)=><div class="item">${p.name} — ${money(p.amount,p.currency)}<button class="delete" onclick="removeItem('expenses',${i})">Delete</button></div>).join('');
+totalDebt.textContent=debts.reduce((s,d)=>s+d.amount,0).toLocaleString()+'*';
+totalIncome.textContent=income.reduce((s,d)=>s+d.amount,0).toLocaleString()+'*';
+totalExpense.textContent=expenses.reduce((s,d)=>s+d.amount,0).toLocaleString()+'*';
+totalPayments.textContent=payments.reduce((s,d)=>s+d.amount,0).toLocaleString()+'*';
+}
+function convert(){
+let a=Number(convertAmount.value),r=Number(exchangeRate.value);
+if(a<=0||r<=0)return alert('Enter amount and exchange rate');
+conversionResult.textContent=convertDirection.value==='AED'?(a*r).toFixed(2)+' INR':(a/r).toFixed(2)+' AED';
+}
+render();
+</script>
+</body>
+</html>
